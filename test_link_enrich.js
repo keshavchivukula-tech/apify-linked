@@ -1,0 +1,35 @@
+import { ApifyClient } from 'apify-client';
+import dotenv from 'dotenv';
+dotenv.config();
+
+const client = new ApifyClient({ token: process.env.APIFY_API_TOKEN });
+
+async function main() {
+    const actorId = 'george.the.developer/linkedin-company-employees-scraper';
+    console.log(`Testing actor: ${actorId}`);
+    
+    try {
+        const input = {
+            "companies": ["Google"],
+            "searchQuery": "CEO",
+            "maxEmployees": 1,
+            "profileDepth": "short"
+        };
+        
+        console.log('Calling actor with input:', JSON.stringify(input, null, 2));
+        const run = await client.actor(actorId).call(input);
+        console.log(`Run finished: ${run.id}`);
+        
+        const { items } = await client.dataset(run.defaultDatasetId).listItems();
+        console.log(`Extracted ${items.length} items.`);
+        if (items.length > 0) {
+            console.log('Sample item:', JSON.stringify(items[0], null, 2));
+        } else {
+            console.log('No items found.');
+        }
+    } catch (e) {
+        console.error('Error:', e.message);
+    }
+}
+
+main();

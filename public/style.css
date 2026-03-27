@@ -10,6 +10,7 @@
     --text-secondary: 215 20% 65%;
     --success: 158 64% 52%;
     --error: 0 84% 60%;
+    --danger: 0 84% 60%;
     
     --transition-base: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -316,6 +317,26 @@ input:focus, select:focus {
     margin-bottom: 0.25rem;
 }
 
+.selection-status {
+    font-size: 0.85rem;
+    color: hsl(var(--brand-primary));
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    background: hsla(var(--brand-primary), 0.1);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    display: inline-block;
+    border: 1px solid hsla(var(--brand-primary), 0.2);
+}
+
+.selected-row {
+    background: hsla(var(--brand-primary), 0.08) !important;
+}
+
+.selected-row td {
+    border-bottom: 1px solid hsla(var(--brand-primary), 0.2);
+}
+
 .results-actions {
     display: flex;
     gap: 1rem;
@@ -355,6 +376,50 @@ input:focus, select:focus {
     background: hsla(var(--success), 0.3);
     transform: translateY(-2px);
     box-shadow: 0 10px 20px -10px hsla(var(--success), 0.5);
+}
+
+.btn-danger {
+    background: hsla(var(--danger), 0.15);
+    border: 1px solid hsla(var(--danger), 0.3);
+    color: #fecaca;
+    padding: 0.75rem 1.25rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-base);
+}
+
+.btn-danger:hover {
+    background: hsla(var(--danger), 0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px -10px hsla(var(--danger), 0.5);
+}
+
+.row-delete-btn {
+    background: transparent;
+    border: none;
+    color: hsl(var(--text-secondary));
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: 0.2s;
+}
+
+.row-delete-btn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* Checkbox Style */
+input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: hsl(var(--brand-primary));
 }
 
 /* Table Style */

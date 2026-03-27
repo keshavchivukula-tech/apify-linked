@@ -20,6 +20,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadFallback = document.getElementById('downloadFallback');
     const manualDownloadLink = document.getElementById('manualDownloadLink');
     
+    // Management Elements
+    const selectAll = document.getElementById('selectAll');
+    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+    const selectionInfo = document.getElementById('selectionInfo');
+    const selectedCount = document.getElementById('selectedCount');
+    
     let currentRecords = []; // Holds the approved records for the CSV
 
     form.addEventListener('submit', async (e) => {
@@ -49,43 +55,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
 
-            currentRecords = data.records;
+            // Initialize all records as selected by default
+            currentRecords = data.records.map((r, index) => ({ 
+                ...r, 
+                id: index, 
+                selected: true 
+            }));
 
-            // Handle Empty Match Case
-            if (currentRecords.length === 0) {
-               statusMessage.textContent = `⚠️ Found 0 jobs perfectly matching the keyword "${keyword}". Try a broader term.`;
-               statusMessage.style.color = '#fbbf24'; // Yellow
-               progressContainer.classList.add('hidden');
-               
-               // Restore button
-               submitBtn.disabled = false;
-               btnText.textContent = 'Search LinkedIn';
-               spinner.classList.add('hidden');
-               return;
-            }
+            renderTable();
 
-            // Successfully got matches, build the review table
-            tableBody.innerHTML = '';
-            currentRecords.forEach(record => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><strong>${record.company}</strong></td>
-                    <td class="text-secondary">${record.ceoName || 'NA'}</td>
-                    <td class="text-secondary">${record.ceoEmail || 'NA'}</td>
-                    <td class="text-secondary">${record.ceoPhone || 'NA'}</td>
-                    <td>${record.title}</td>
-                    <td>${record.location}</td>
-                    <td class="text-right"><a href="${record.jobUrl}" target="_blank" class="view-link">View Job <i data-lucide="external-link" style="width:14px; height:14px; vertical-align:middle; margin-left:4px;"></i></a></td>
-                `;
-                tableBody.appendChild(tr);
-            });
-
-            // Re-initialize Lucide icons for new rows
-            if (window.lucide) {
-                window.lucide.createIcons();
-            }
-
-            // Update stats text
+            // Stats Update
             resultsStats.textContent = `Found ${currentRecords.length} exact matches (from ${data.originalCount} initial scraped jobs).`;
             
             // Switch UI Panels
@@ -114,40 +93,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Stage 2: Lead Enrichment (CEO, Email, Phone) - REAL DATA
     enrichBtn.addEventListener('click', async () => {
+        const selectedLeads = currentRecords.filter(r => r.selected);
+        
+        if (selectedLeads.length === 0) {
+            alert('Please select at least one lead to enrich.');
+            return;
+        }
+
         const originalText = enrichBtn.innerHTML;
         enrichBtn.disabled = true;
-        enrichBtn.innerHTML = '<i data-lucide="loader" class="spinner"></i> Finding Real Contacts... (2-4 mins)';
+        enrichBtn.innerHTML = `<i data-lucide="loader" class="spinner"></i> Enriching ${selectedLeads.length} leads... (2-4 mins)`;
         if (window.lucide) window.lucide.createIcons();
 
         try {
             const response = await fetch('/api/enrich', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ records: currentRecords })
+                body: JSON.stringify({ records: selectedLeads })
             });
 
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
 
-            currentRecords = data.records;
-
-            // Re-render table with enriched data
-            tableBody.innerHTML = '';
-            currentRecords.forEach(record => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><strong>${record.company}</strong></td>
-                    <td class="text-secondary">${record.ceoName || 'NA'}</td>
-                    <td class="text-secondary">${record.ceoEmail || 'NA'}</td>
-                    <td class="text-secondary">${record.ceoPhone || 'NA'}</td>
-                    <td>${record.title}</td>
-                    <td>${record.location}</td>
-                    <td class="text-right"><a href="${record.jobUrl}" target="_blank" class="view-link">View Job <i data-lucide="external-link" style="width:14px; height:14px; vertical-align:middle; margin-left:4px;"></i></a></td>
-                `;
-                tableBody.appendChild(tr);
+            // Update only the enriched matches back into currentRecords
+            data.records.forEach(updated => {
+                const idx = currentRecords.findIndex(r => r.company === updated.company && r.title === updated.title);
+                if (idx !== -1) currentRecords[idx] = { ...currentRecords[idx], ...updated };
             });
 
-            if (window.lucide) window.lucide.createIcons();
+            renderTable();
             
             enrichBtn.innerHTML = '✅ Enriched';
             setTimeout(() => {
@@ -173,6 +147,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Approve the records and download the Excel file (.xlsx)
     approveBtn.addEventListener('click', async () => {
+        const selectedLeads = currentRecords.filter(r => r.selected);
+        
+        if (selectedLeads.length === 0) {
+            alert('Please select at least one lead to export.');
+            return;
+        }
+
         const originalText = approveBtn.textContent;
         
         approveBtn.textContent = 'Generating Excel...';
@@ -180,11 +161,11 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadFallback.classList.add('hidden');
 
         try {
-            // Send records to backend to be saved as XLSX
+            // Send selected records to backend
             const response = await fetch('/api/export', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ records: currentRecords })
+                body: JSON.stringify({ records: selectedLeads })
             });
             
             if (!response.ok) {
@@ -226,6 +207,101 @@ document.addEventListener('DOMContentLoaded', () => {
             approveBtn.textContent = originalText;
             approveBtn.disabled = false;
             downloadFallback.classList.add('hidden');
+        }
+    });
+
+    // --- Lead Management Logic ---
+
+    function renderTable() {
+        tableBody.innerHTML = '';
+        
+        if (currentRecords.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 3rem; color: #a0aec0;">No leads remaining. Run a new search to find more.</td></tr>';
+            resultsStats.textContent = 'Found 0 matching jobs';
+            selectionInfo.classList.add('hidden');
+            deleteSelectedBtn.classList.add('hidden');
+            return;
+        }
+
+        currentRecords.forEach((record, index) => {
+            const tr = document.createElement('tr');
+            if (record.selected) tr.classList.add('selected-row');
+            
+            tr.innerHTML = `
+                <td><input type="checkbox" class="lead-checkbox" data-index="${index}" ${record.selected ? 'checked' : ''}></td>
+                <td><strong>${record.company}</strong></td>
+                <td class="text-secondary">${record.ceoName || 'NA'}</td>
+                <td class="text-secondary">${record.ceoEmail || 'NA'}</td>
+                <td class="text-secondary">${record.ceoPhone || 'NA'}</td>
+                <td>${record.title}</td>
+                <td>${record.location}</td>
+                <td class="text-right">
+                    <div style="display:flex; gap:8px; justify-content:flex-end; align-items:center;">
+                        <a href="${record.jobUrl}" target="_blank" class="view-link" title="View Job">
+                            <i data-lucide="external-link" style="width:16px;"></i>
+                        </a>
+                        <button class="row-delete-btn" data-index="${index}" title="Remove Lead">
+                            <i data-lucide="trash-2" style="width:16px;"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            tableBody.appendChild(tr);
+        });
+
+        if (window.lucide) window.lucide.createIcons();
+        updateSelectionUI();
+    }
+
+    function updateSelectionUI() {
+        const selected = currentRecords.filter(r => r.selected).length;
+        selectedCount.textContent = selected;
+        
+        if (selected > 0) {
+            selectionInfo.classList.remove('hidden');
+            deleteSelectedBtn.classList.remove('hidden');
+        } else {
+            selectionInfo.classList.add('hidden');
+            deleteSelectedBtn.classList.add('hidden');
+        }
+
+        selectAll.checked = selected === currentRecords.length && currentRecords.length > 0;
+    }
+
+    // Toggle Single Row Selection
+    tableBody.addEventListener('change', (e) => {
+        if (e.target.classList.contains('lead-checkbox')) {
+            const index = e.target.dataset.index;
+            currentRecords[index].selected = e.target.checked;
+            renderTable();
+        }
+    });
+
+    // Toggle All Selection
+    selectAll.addEventListener('change', () => {
+        const isChecked = selectAll.checked;
+        currentRecords.forEach(r => r.selected = isChecked);
+        renderTable();
+    });
+
+    // Individual Delete
+    tableBody.addEventListener('click', (e) => {
+        const deleteBtn = e.target.closest('.row-delete-btn');
+        if (deleteBtn) {
+            const index = parseInt(deleteBtn.dataset.index);
+            if (confirm(`Remove "${currentRecords[index].company}" from results?`)) {
+                currentRecords.splice(index, 1);
+                renderTable();
+            }
+        }
+    });
+
+    // Bulk Delete
+    deleteSelectedBtn.addEventListener('click', () => {
+        const selectedCount = currentRecords.filter(r => r.selected).length;
+        if (confirm(`Are you sure you want to remove ${selectedCount} selected leads?`)) {
+            currentRecords = currentRecords.filter(r => !r.selected);
+            renderTable();
         }
     });
 

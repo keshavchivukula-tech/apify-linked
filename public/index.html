@@ -83,11 +83,15 @@
                 <div class="results-title">
                     <h2>Scraped Leads Review</h2>
                     <p id="resultsStats">Found X matching jobs</p>
+                    <div id="selectionInfo" class="selection-status hidden">
+                        <span id="selectedCount">0</span> leads selected
+                    </div>
                 </div>
                 <div class="results-actions">
                     <button id="backBtn" class="btn-secondary"><i data-lucide="chevron-left"></i> Back</button>
-                    <button id="enrichBtn" class="btn-secondary" style="border-color: hsla(var(--brand-primary), 0.5); color: hsla(var(--brand-primary), 1);"><i data-lucide="sparkles"></i> Enrich Contacts</button>
-                    <button id="approveBtn" class="btn-success"><i data-lucide="download"></i> Approve & Download Excel</button>
+                    <button id="deleteSelectedBtn" class="btn-danger hidden"><i data-lucide="trash-2"></i> Delete Selected</button>
+                    <button id="enrichBtn" class="btn-secondary" style="border-color: hsla(var(--brand-primary), 0.5); color: hsla(var(--brand-primary), 1);"><i data-lucide="sparkles"></i> Enrich Selective</button>
+                    <button id="approveBtn" class="btn-success"><i data-lucide="download"></i> Approve & Download</button>
                 </div>
             </header>
 
@@ -102,6 +106,7 @@
                 <table id="leadsTable">
                     <thead>
                         <tr>
+                            <th style="width: 40px;"><input type="checkbox" id="selectAll"></th>
                             <th>Company</th>
                             <th>CEO Name</th>
                             <th>CEO Email</th>
