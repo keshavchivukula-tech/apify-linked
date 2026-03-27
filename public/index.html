@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apify Lead Generator | Premium Scraper</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div class="mesh-background"></div>
+    <div class="mesh-blob mesh-blob-1"></div>
+    <div class="mesh-blob mesh-blob-2"></div>
+    <div class="mesh-blob mesh-blob-3"></div>
+
+    <!-- MAIN FORM PANEL -->
+    <div class="container" id="mainPanel">
+        <div class="glass-panel main-wrapper">
+            <header class="main-header">
+                <div class="logo-area">
+                    <div class="logo-hex">
+                        <i data-lucide="zap" class="logo-icon"></i>
+                    </div>
+                    <div>
+                        <h1>Lead Generator</h1>
+                        <p>Powered by <span class="brand-name">Keshav APILINK Scraper</span></p>
+                    </div>
+                </div>
+            </header>
+
+            <form id="scrapeForm" class="form-grid">
+                <div class="input-group">
+                    <label for="keyword"><i data-lucide="search"></i> Job Title Keyword</label>
+                    <input type="text" id="keyword" name="keyword" placeholder="e.g. Software Developer" required>
+                </div>
+                
+                <div class="input-group">
+                    <label for="location"><i data-lucide="map-pin"></i> Location</label>
+                    <input type="text" id="location" name="location" placeholder="e.g. United States" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="input-group">
+                        <label for="datePosted"><i data-lucide="calendar"></i> Date Posted</label>
+                        <select id="datePosted" name="datePosted">
+                            <option value="">Any Time</option>
+                            <option value="r86400">Past 24 hours</option>
+                            <option value="r604800">Past Week</option>
+                            <option value="r2592000">Past Month</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="jobsNumber"><i data-lucide="list"></i> Search Limit</label>
+                        <input type="number" id="jobsNumber" name="jobsNumber" value="20" min="1" max="1000">
+                    </div>
+                </div>
+
+                <button type="submit" id="submitBtn" class="btn-primary">
+                    <span class="btn-text">Search LinkedIn</span>
+                    <i data-lucide="arrow-right" class="btn-arrow"></i>
+                    <span class="spinner hidden"></span>
+                </button>
+            </form>
+
+            <div id="statusBox" class="status-box hidden">
+                <div class="status-content">
+                    <p id="statusMessage">Starting the search...</p>
+                    <div class="progress-bar-container hidden" id="progressContainer">
+                        <div class="progress-bar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RESULTS PANEL -->
+    <div class="results-container hidden" id="resultsPanel">
+        <div class="glass-panel results-wrapper">
+            <header class="results-header">
+                <div class="results-title">
+                    <h2>Scraped Leads Review</h2>
+                    <p id="resultsStats">Found X matching jobs</p>
+                </div>
+                <div class="results-actions">
+                    <button id="backBtn" class="btn-secondary"><i data-lucide="chevron-left"></i> Back</button>
+                    <button id="enrichBtn" class="btn-secondary" style="border-color: hsla(var(--brand-primary), 0.5); color: hsla(var(--brand-primary), 1);"><i data-lucide="sparkles"></i> Enrich Contacts</button>
+                    <button id="approveBtn" class="btn-success"><i data-lucide="download"></i> Approve & Download Excel</button>
+                </div>
+            </header>
+
+            <div id="downloadFallback" class="fallback-box hidden">
+                <div class="fallback-inner">
+                    <i data-lucide="info"></i>
+                    <p>Download should start automatically. If not, <a id="manualDownloadLink" href="#" target="_blank">click here to download manually</a>.</p>
+                </div>
+            </div>
+
+            <div class="table-frame">
+                <table id="leadsTable">
+                    <thead>
+                        <tr>
+                            <th>Company</th>
+                            <th>CEO Name</th>
+                            <th>CEO Email</th>
+                            <th>CEO Contact</th>
+                            <th>Job Title</th>
+                            <th>Location</th>
+                            <th class="text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Rows injected via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>
