@@ -168,18 +168,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ records: selectedLeads })
             });
             
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to generate Excel file');
-            }
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to generate Excel file');
 
-            // Handle the response as a binary blob
-            const blob = await response.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
-            
-            // Generate a filename based on current timestamp
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const filename = `leads_${timestamp}.xlsx`;
+            const filename = data.filename;
+            const downloadUrl = `/api/download/${filename}`;
 
             // 1. Show manual download link as a fallback
             manualDownloadLink.href = downloadUrl;
@@ -187,7 +180,6 @@ document.addEventListener('DOMContentLoaded', () => {
             downloadFallback.classList.remove('hidden');
 
             // 2. Automatic trigger using a temporary link element
-            // This is safer than window.location.href for blobs
             const a = document.createElement('a');
             a.href = downloadUrl;
             a.download = filename;
@@ -240,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <a href="${record.jobUrl}" target="_blank" class="view-link" title="View Job">
                             <i data-lucide="external-link" style="width:16px;"></i>
                         </a>
-                        <button class="row-delete-btn" data-index="${index}" title="Remove Lead">
+                        <button type="button" class="row-delete-btn" data-index="${index}" title="Remove Lead">
                             <i data-lucide="trash-2" style="width:16px;"></i>
                         </button>
                     </div>
@@ -288,8 +280,19 @@ document.addEventListener('DOMContentLoaded', () => {
     tableBody.addEventListener('click', (e) => {
         const deleteBtn = e.target.closest('.row-delete-btn');
         if (deleteBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            
             const index = parseInt(deleteBtn.dataset.index);
-            if (confirm(`Remove "${currentRecords[index].company}" from results?`)) {
+            const record = currentRecords[index];
+            
+            if (!record) {
+                console.error('Delete Error: Record not found at index', index);
+                return;
+            }
+
+            if (confirm(`Remove "${record.company}" from results?`)) {
+                console.log('Deleting record at index:', index, record.company);
                 currentRecords.splice(index, 1);
                 renderTable();
             }

@@ -103,7 +103,15 @@ app.post('/api/scrape', async (req, res) => {
         res.json({ message: 'Success', records, originalCount });
 
     } catch (error) {
-        res.status(500).json({ error: error.message || 'An error occurred during scraping.' });
+        console.error(`[API] Scrape Error [${error.code || 'UNKNOWN'}]:`, error.message);
+        
+        // Don't crash on network timeouts or resets
+        const statusCode = error.code === 'ECONNRESET' ? 503 : 500;
+        const msg = error.code === 'ECONNRESET' 
+            ? 'Connection to Apify was reset. Please try again in 30 seconds.'
+            : (error.message || 'An error occurred during scraping.');
+
+        res.status(statusCode).json({ error: msg });
     }
 });
 
@@ -161,16 +169,10 @@ app.post('/api/export', async (req, res) => {
         await workbook.xlsx.writeFile(filePath);
         console.log(`[API] Saved to disk: ${filename}`);
 
-        // 2. Generate buffer for direct response
-        const buffer = await workbook.xlsx.writeBuffer();
-        
-        // Set headers for file download
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        
-        // Send the buffer directly
-        res.send(buffer);
-        console.log(`[API] Exported directly (ExcelJS): ${filename}`);
+        // 2. Respond with the filename so the client can trigger a regular GET download
+        console.log(`DEBUG: Sending JSON response for export: ${filename}`);
+        res.json({ message: 'Excel generated successfully', filename });
+        console.log(`[API] Export reference sent: ${filename}`);
 
     } catch(err) {
         console.error('[API] Export error:', err);
@@ -233,8 +235,9 @@ app.post('/api/enrich', async (req, res) => {
         console.log(`[API] Real Enrichment complete for ${enrichedRecords.length} leads.`);
 
     } catch(err) {
-        console.error('[API] Global Enrichment error:', err);
-        res.status(500).json({ error: 'Failed to enrich leads.' });
+        console.error('[API] Global Enrichment Error:', err.message);
+        const statusCode = err.code === 'ECONNRESET' ? 503 : 500;
+        res.status(statusCode).json({ error: 'Failed to enrich leads. The connection might have timed out.' });
     }
 });
 
@@ -256,4 +259,4 @@ app.get('/api/download/:filename', (req, res) => {
     });
 });
 
-app.listen(PORT, () => console.log(`🎉 Server is running on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`🎉 [v2] Server is running on http://localhost:${PORT}`));
