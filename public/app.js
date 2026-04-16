@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const backBtn = document.getElementById('backBtn');
     const enrichBtn = document.getElementById('enrichBtn');
     const approveBtn = document.getElementById('approveBtn');
+    const downloadCsvBtn = document.getElementById('downloadCsvBtn');
     const downloadFallback = document.getElementById('downloadFallback');
     const manualDownloadLink = document.getElementById('manualDownloadLink');
     
@@ -27,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectedCount = document.getElementById('selectedCount');
     
     let currentRecords = []; // Holds the approved records for the CSV
+    let enrichingIds = new Set(); // IDs of records currently being enriched
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -102,40 +104,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const originalText = enrichBtn.innerHTML;
         enrichBtn.disabled = true;
-        enrichBtn.innerHTML = `<i data-lucide="loader" class="spinner"></i> Enriching ${selectedLeads.length} leads... (2-4 mins)`;
-        if (window.lucide) window.lucide.createIcons();
+        
+        // Mark all selected leads as enriching
+        selectedLeads.forEach(l => enrichingIds.add(l.id));
+        renderTable(); 
+        
+        const total = selectedLeads.length;
+        let successCount = 0;
+        let failCount = 0;
 
         try {
-            const response = await fetch('/api/enrich', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ records: selectedLeads })
-            });
+            for (let i = 0; i < total; i++) {
+                const lead = selectedLeads[i];
+                
+                // Update button text to show progress
+                enrichBtn.innerHTML = `<i data-lucide="loader" class="spinner"></i> Enriching ${i + 1}/${total}...`;
+                if (window.lucide) window.lucide.createIcons();
 
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error);
+                try {
+                    const response = await fetch('/api/enrich', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ records: [lead] }) // Send one at a time for stability
+                    });
 
-            // Update only the enriched matches back into currentRecords
-            data.records.forEach(updated => {
-                const idx = currentRecords.findIndex(r => r.company === updated.company && r.title === updated.title);
-                if (idx !== -1) currentRecords[idx] = { ...currentRecords[idx], ...updated };
-            });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error);
 
-            renderTable();
-            
-            enrichBtn.innerHTML = '✅ Enriched';
+                    // Update the match back into currentRecords
+                    if (data.records && data.records.length > 0) {
+                        const updated = data.records[0];
+                        const idx = currentRecords.findIndex(r => r.company === updated.company && r.title === updated.title);
+                        if (idx !== -1) {
+                            currentRecords[idx] = { ...currentRecords[idx], ...updated };
+                            successCount++;
+                        }
+                    }
+                    
+                    // Re-render table after EACH success for real-time feedback
+                    renderTable();
+
+                } catch (err) {
+                    console.error(`Failed to enrich ${lead.company}:`, err);
+                    failCount++;
+                }
+            }
+
+            enrichBtn.innerHTML = `✅ Done (${successCount} s, ${failCount} f)`;
+
+        } catch (error) {
+            console.error('Global Enrichment Loop Error:', error);
+            alert('Enrichment process was interrupted. Check console for details.');
+        } finally {
+            enrichingIds.clear();
+            // ALWAYS reset the button state
             setTimeout(() => {
                 enrichBtn.innerHTML = originalText;
                 enrichBtn.disabled = false;
+                renderTable(); 
                 if (window.lucide) window.lucide.createIcons();
             }, 3000);
-
-        } catch (error) {
-            console.error('Enrichment Error:', error);
-            alert('Enrichment failed: ' + error.message);
-            enrichBtn.innerHTML = originalText;
-            enrichBtn.disabled = false;
-            if (window.lucide) window.lucide.createIcons();
         }
     });
 
@@ -145,8 +173,8 @@ document.addEventListener('DOMContentLoaded', () => {
         mainPanel.classList.remove('hidden');
     });
 
-    // Approve the records and download the Excel file (.xlsx)
-    approveBtn.addEventListener('click', async () => {
+    // Unified Export Function (supports CSV and XLSX)
+    async function handleExport(format = 'xlsx') {
         const selectedLeads = currentRecords.filter(r => r.selected);
         
         if (selectedLeads.length === 0) {
@@ -154,22 +182,24 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const originalText = approveBtn.textContent;
+        const targetBtn = format === 'csv' ? downloadCsvBtn : approveBtn;
+        const originalText = targetBtn.innerHTML;
+        const extension = format.toUpperCase();
         
-        approveBtn.textContent = 'Generating Excel...';
-        approveBtn.disabled = true;
+        targetBtn.innerHTML = `<i data-lucide="loader" class="spinner"></i> Generating ${extension}...`;
+        targetBtn.disabled = true;
         downloadFallback.classList.add('hidden');
 
         try {
-            // Send selected records to backend
+            // Send selected records and format to backend
             const response = await fetch('/api/export', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ records: selectedLeads })
+                body: JSON.stringify({ records: selectedLeads, format })
             });
             
             const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'Failed to generate Excel file');
+            if (!response.ok) throw new Error(data.error || `Failed to generate ${extension} file`);
 
             const filename = data.filename;
             const downloadUrl = `/api/download/${filename}`;
@@ -188,28 +218,56 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.removeChild(a);
 
             // Success feedback
-            approveBtn.textContent = '✅ Success! Downloaded.';
+            targetBtn.innerHTML = `✅ ${extension} Ready!`;
             setTimeout(() => {
-                approveBtn.textContent = originalText;
-                approveBtn.disabled = false;
+                targetBtn.innerHTML = originalText;
+                targetBtn.disabled = false;
+                if (window.lucide) window.lucide.createIcons();
             }, 5000);
             
         } catch(err) {
-            alert('Error creating Excel: ' + err.message);
-            approveBtn.textContent = originalText;
-            approveBtn.disabled = false;
+            alert(`Error creating ${extension}: ` + err.message);
+            targetBtn.innerHTML = originalText;
+            targetBtn.disabled = false;
             downloadFallback.classList.add('hidden');
+            if (window.lucide) window.lucide.createIcons();
         }
-    });
+    }
+
+    // Attach listeners to both buttons
+    approveBtn.addEventListener('click', () => handleExport('xlsx'));
+    downloadCsvBtn.addEventListener('click', () => handleExport('csv'));
 
     // --- Lead Management Logic ---
+    
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        
+        const iconName = type === 'success' ? 'check-circle' : 'alert-circle';
+        toast.innerHTML = `
+            <i data-lucide="${iconName}"></i>
+            <span>${message}</span>
+        `;
+        
+        container.appendChild(toast);
+        if (window.lucide) window.lucide.createIcons();
+        
+        // Remove toast after animation
+        setTimeout(() => {
+            toast.remove();
+        }, 4000);
+    }
 
     function renderTable() {
         tableBody.innerHTML = '';
         
+        // Update Stats Count
+        resultsStats.textContent = `Found ${currentRecords.length} leads in your workspace.`;
+
         if (currentRecords.length === 0) {
             tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 3rem; color: #a0aec0;">No leads remaining. Run a new search to find more.</td></tr>';
-            resultsStats.textContent = 'Found 0 matching jobs';
             selectionInfo.classList.add('hidden');
             deleteSelectedBtn.classList.add('hidden');
             return;
@@ -219,8 +277,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             if (record.selected) tr.classList.add('selected-row');
             
+            const isLocked = enrichingIds.has(record.id);
+            
             tr.innerHTML = `
-                <td><input type="checkbox" class="lead-checkbox" data-index="${index}" ${record.selected ? 'checked' : ''}></td>
+                <td><input type="checkbox" class="lead-checkbox" data-index="${index}" ${record.selected ? 'checked' : ''} ${isLocked ? 'disabled' : ''}></td>
                 <td><strong>${record.company}</strong></td>
                 <td class="text-secondary">${record.ceoName || 'NA'}</td>
                 <td class="text-secondary">${record.ceoEmail || 'NA'}</td>
@@ -232,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <a href="${record.jobUrl}" target="_blank" class="view-link" title="View Job">
                             <i data-lucide="external-link" style="width:16px;"></i>
                         </a>
-                        <button type="button" class="row-delete-btn" data-index="${index}" title="Remove Lead">
+                        <button type="button" class="row-delete-btn" data-index="${index}" title="Remove Lead" ${isLocked ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
                             <i data-lucide="trash-2" style="width:16px;"></i>
                         </button>
                     </div>
@@ -256,8 +316,22 @@ document.addEventListener('DOMContentLoaded', () => {
             selectionInfo.classList.add('hidden');
             deleteSelectedBtn.classList.add('hidden');
         }
-
+        
+        selectAll.disabled = enrichingIds.size > 0; // Disable select all if any batch is processing
         selectAll.checked = selected === currentRecords.length && currentRecords.length > 0;
+        
+        // If any of the currently selected records are being enriched, disable bulk delete
+        const anySelectedIsEnriching = currentRecords.some(r => r.selected && enrichingIds.has(r.id));
+
+        if (anySelectedIsEnriching) {
+            deleteSelectedBtn.disabled = true;
+            deleteSelectedBtn.style.opacity = '0.5';
+            deleteSelectedBtn.style.cursor = 'not-allowed';
+        } else {
+            deleteSelectedBtn.disabled = false;
+            deleteSelectedBtn.style.opacity = '1';
+            deleteSelectedBtn.style.cursor = 'pointer';
+        }
     }
 
     // Toggle Single Row Selection
@@ -276,36 +350,45 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTable();
     });
 
-    // Individual Delete
+    // Individual Delete (Non-intrusive)
     tableBody.addEventListener('click', (e) => {
         const deleteBtn = e.target.closest('.row-delete-btn');
         if (deleteBtn) {
+            const index = parseInt(deleteBtn.dataset.index);
+            const recordId = currentRecords[index]?.id;
+            
+            if (enrichingIds.has(recordId)) return; // Guard
+            
             e.preventDefault();
             e.stopPropagation();
             
-            const index = parseInt(deleteBtn.dataset.index);
-            const record = currentRecords[index];
-            
-            if (!record) {
-                console.error('Delete Error: Record not found at index', index);
-                return;
-            }
+            const tr = deleteBtn.closest('tr');
+            const companyName = currentRecords[index]?.company || 'Lead';
 
-            if (confirm(`Remove "${record.company}" from results?`)) {
-                console.log('Deleting record at index:', index, record.company);
+            // Animation first
+            tr.classList.add('deleting-row');
+            
+            setTimeout(() => {
                 currentRecords.splice(index, 1);
                 renderTable();
-            }
+                showToast(`Removed "${companyName}" from list`, 'success');
+            }, 300); // 300ms match CSS animation
         }
     });
 
-    // Bulk Delete
+    // Bulk Delete (Non-intrusive)
     deleteSelectedBtn.addEventListener('click', () => {
-        const selectedCount = currentRecords.filter(r => r.selected).length;
-        if (confirm(`Are you sure you want to remove ${selectedCount} selected leads?`)) {
-            currentRecords = currentRecords.filter(r => !r.selected);
-            renderTable();
-        }
+        const selectedLeadsCount = currentRecords.filter(r => r.selected).length;
+        if (selectedLeadsCount === 0) return;
+
+        // Ensure we don't bulk delete any records currently enriching
+        const anyEnriching = currentRecords.some(r => r.selected && enrichingIds.has(r.id));
+        if (anyEnriching) return; // Guard
+
+        // Immediate removal for bulk
+        currentRecords = currentRecords.filter(r => !r.selected);
+        renderTable();
+        showToast(`Bulk deleted ${selectedLeadsCount} leads`, 'success');
     });
 
 });

@@ -10,6 +10,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
+    <div id="toastContainer"></div>
     <div class="mesh-background"></div>
     <div class="mesh-blob mesh-blob-1"></div>
     <div class="mesh-blob mesh-blob-2"></div>
@@ -91,7 +92,8 @@
                     <button id="backBtn" class="btn-secondary"><i data-lucide="chevron-left"></i> Back</button>
                     <button id="deleteSelectedBtn" class="btn-danger hidden"><i data-lucide="trash-2"></i> Delete Selected</button>
                     <button id="enrichBtn" class="btn-secondary" style="border-color: hsla(var(--brand-primary), 0.5); color: hsla(var(--brand-primary), 1);"><i data-lucide="sparkles"></i> Enrich Selective</button>
-                    <button id="approveBtn" class="btn-success"><i data-lucide="download"></i> Approve & Download</button>
+                    <button id="downloadCsvBtn" class="btn-secondary" style="border-color: #22c55e; color: #22c55e;"><i data-lucide="file-text"></i> Download CSV</button>
+                    <button id="approveBtn" class="btn-success"><i data-lucide="download"></i> Approve & Download (Excel)</button>
                 </div>
             </header>
 

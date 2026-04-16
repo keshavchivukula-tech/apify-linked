@@ -8,6 +8,21 @@ import { fileURLToPath } from 'url';
 
 dotenv.config();
 
+// Global Exception Handlers to prevent server crashes from network aborts
+process.on('uncaughtException', (err) => {
+    console.error('[CRITICAL] Uncaught Exception:', err.message);
+    if (err.code === 'ECONNRESET' || err.message === 'aborted') {
+        console.warn('[WARN] Network abort detected, keeping server alive...');
+    } else {
+        // For other errors, we might want to exit, but let's stay alive for now in this dev environment
+        console.error(err.stack);
+    }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -118,11 +133,13 @@ app.post('/api/scrape', async (req, res) => {
 // Excel Generate Endpoint
 app.post('/api/export', async (req, res) => {
     try {
-        const { records } = req.body;
+        const { records, format = 'xlsx' } = req.body;
         if (!records || records.length === 0) return res.status(400).json({ error: 'No records to save.' });
 
+        const isCsv = format.toLowerCase() === 'csv';
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `leads_${timestamp}.xlsx`;
+        const extension = isCsv ? 'csv' : 'xlsx';
+        const filename = `leads_${timestamp}.${extension}`;
         const filePath = path.join(LEADS_DIR, filename);
 
         // Create a new workbook and worksheet
@@ -166,12 +183,16 @@ app.post('/api/export', async (req, res) => {
         });
 
         // 1. Write to file (as a persistent record)
-        await workbook.xlsx.writeFile(filePath);
+        if (isCsv) {
+            await workbook.csv.writeFile(filePath);
+        } else {
+            await workbook.xlsx.writeFile(filePath);
+        }
         console.log(`[API] Saved to disk: ${filename}`);
 
         // 2. Respond with the filename so the client can trigger a regular GET download
         console.log(`DEBUG: Sending JSON response for export: ${filename}`);
-        res.json({ message: 'Excel generated successfully', filename });
+        res.json({ message: `${extension.toUpperCase()} generated successfully`, filename });
         console.log(`[API] Export reference sent: ${filename}`);
 
     } catch(err) {
@@ -186,58 +207,91 @@ app.post('/api/enrich', async (req, res) => {
         const { records } = req.body;
         if (!records || records.length === 0) return res.status(400).json({ error: 'No records to enrich.' });
 
-        console.log(`[API] Starting REAL CEO Enrichment for ${records.length} leads...`);
+        console.log(`[API] Enrichment request for ${records.length} lead(s). Processing...`);
 
-        // We will process the leads in small batches to manage concurrency and performance.
         const enrichLead = async (r) => {
             try {
                 console.log(`[API] Enriching: ${r.company}`);
                 
-                // Call the specialized 'get-leads/linkedin-scraper' for CEO discovery
-                const run = await client.actor('2atkKH5LuF2AAPp3N').call({
-                    mode: 'search_profiles',
-                    searchQuery: `CEO at ${r.company}`,
-                    maxProfilesPerSearch: 1,
-                    discoverEmails: true,
-                    includeContactInformation: true
-                });
+                // Call the specialized actor for CEO discovery
+                let run;
+                try {
+                    run = await client.actor('2atkKH5LuF2AAPp3N').call({
+                        mode: 'search_profiles',
+                        searchQuery: `CEO at ${r.company}`,
+                        maxProfilesPerSearch: 1,
+                        discoverEmails: true,
+                        includeContactInformation: true
+                    });
+                } catch (actorErr) {
+                    console.error(`[API] Apify Actor Call Error for ${r.company}:`, actorErr.message);
+                    return { ...r, ceoName: 'NA (Error)', ceoEmail: 'NA (Error)', ceoPhone: 'NA (Error)' };
+                }
 
                 const { items } = await client.dataset(run.defaultDatasetId).listItems();
+                console.log(`[API] Actor found ${items.length} items for ${r.company}`);
                 
                 if (items && items.length > 0) {
                     const ceo = items[0];
+                    
+                    // Log the first item for debugging schema
+                    console.log(`[DEBUG] Item keys for ${r.company}:`, Object.keys(ceo).join(', '));
+                    if (ceo.email) console.log(`[DEBUG] Email found: ${ceo.email}`);
+
+                    // Robust Field Mapping
+                    const ceoName = ceo.fullName || ceo.full_name || ceo.name || 'NA';
+                    
+                    let ceoEmail = 'NA';
+                    if (ceo.email) {
+                        ceoEmail = Array.isArray(ceo.email) ? ceo.email[0] : ceo.email;
+                    } else if (ceo.emails && Array.isArray(ceo.emails)) {
+                        ceoEmail = ceo.emails[0];
+                    } else if (ceo.officialEmail) {
+                        ceoEmail = ceo.officialEmail;
+                    }
+
+                    let ceoPhone = 'NA';
+                    if (ceo.phone) {
+                        ceoPhone = Array.isArray(ceo.phone) ? ceo.phone[0] : ceo.phone;
+                    } else if (ceo.phone_number) {
+                        ceoPhone = ceo.phone_number;
+                    } else if (ceo.phoneNumbers && Array.isArray(ceo.phoneNumbers)) {
+                        ceoPhone = ceo.phoneNumbers[0];
+                    }
+
                     return {
                         ...r,
-                        ceoName: ceo.fullName || 'NA',
-                        ceoEmail: ceo.email || 'NA',
-                        ceoPhone: ceo.phone || 'NA'
+                        ceoName: ceoName !== 'NA' ? ceoName : (r.ceoName || 'NA'),
+                        ceoEmail: ceoEmail !== 'NA' ? ceoEmail : (r.ceoEmail || 'NA'),
+                        ceoPhone: ceoPhone !== 'NA' ? ceoPhone : (r.ceoPhone || 'NA')
                     };
                 }
                 
-                return { ...r, ceoName: 'NA', ceoEmail: 'NA', ceoPhone: 'NA' };
+                console.log(`[API] No enrichment data found for ${r.company}`);
+                return { ...r };
 
             } catch (err) {
                 console.error(`[API] Enrichment failed for ${r.company}:`, err.message);
-                return { ...r, ceoName: 'NA', ceoEmail: 'NA', ceoPhone: 'NA' };
+                return { ...r }; // Return original record on failure
             }
         };
 
-        // Concurrency-limited processing (limit to 3 parallel runs to avoid rate limits)
+        // Process sequentially or in very small batches for stability
         const enrichedRecords = [];
-        const batchSize = 3;
-        for (let i = 0; i < records.length; i += batchSize) {
-            const batch = records.slice(i, i + batchSize);
-            const results = await Promise.all(batch.map(enrichLead));
-            enrichedRecords.push(...results);
+        try {
+            for (const record of records) {
+                const result = await enrichLead(record);
+                enrichedRecords.push(result);
+            }
+            res.json({ records: enrichedRecords });
+        } catch (loopErr) {
+            console.error('[API] Enrichment Loop Error:', loopErr.message);
+            res.status(500).json({ error: 'Failed to complete enrichment batch due to network error.' });
         }
-
-        res.json({ records: enrichedRecords });
-        console.log(`[API] Real Enrichment complete for ${enrichedRecords.length} leads.`);
 
     } catch(err) {
         console.error('[API] Global Enrichment Error:', err.message);
-        const statusCode = err.code === 'ECONNRESET' ? 503 : 500;
-        res.status(statusCode).json({ error: 'Failed to enrich leads. The connection might have timed out.' });
+        res.status(500).json({ error: 'Internal server error during enrichment.' });
     }
 });
 
