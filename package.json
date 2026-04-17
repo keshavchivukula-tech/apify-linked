@@ -1,21 +1,19 @@
 {
   "name": "apify-linked",
   "version": "1.0.0",
-  "description": "",
+  "description": "Apify Linked Lead Generator",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
     "apify-client": "^2.22.3",
-    "csv-writer": "^1.6.0",
     "dotenv": "^17.3.1",
-    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "xlsx": "^0.18.5"
   }

@@ -1,8 +1,8 @@
+console.log('[BOOT] Starting Apify-Linked Server...');
 import express from 'express';
 import os from 'os';
 import { ApifyClient } from 'apify-client';
 import dotenv from 'dotenv';
-import ExcelJS from 'exceljs';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
