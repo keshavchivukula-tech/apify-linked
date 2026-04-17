@@ -30,6 +30,50 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentRecords = []; // Holds the approved records for the CSV
     let enrichingIds = new Set(); // IDs of records currently being enriched
 
+    // --- Slider Logic ---
+    function initSlider() {
+        const slider = document.getElementById('heroSlider');
+        const slides = slider.querySelectorAll('.slide');
+        const dots = slider.querySelectorAll('.slider-dot');
+        let currentSlide = 0;
+        let slideInterval;
+
+        function showSlide(index) {
+            slides.forEach(s => s.classList.remove('active'));
+            dots.forEach(d => d.classList.remove('active'));
+            
+            slides[index].classList.add('active');
+            dots[index].classList.add('active');
+            currentSlide = index;
+        }
+
+        function nextSlide() {
+            let next = (currentSlide + 1) % slides.length;
+            showSlide(next);
+        }
+
+        function startInterval() {
+            slideInterval = setInterval(nextSlide, 5000);
+        }
+
+        function resetInterval() {
+            clearInterval(slideInterval);
+            startInterval();
+        }
+
+        dots.forEach(dot => {
+            dot.addEventListener('click', () => {
+                const index = parseInt(dot.dataset.index);
+                showSlide(index);
+                resetInterval();
+            });
+        });
+
+        startInterval();
+    }
+
+    initSlider();
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -40,12 +84,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // UI Loading State
         submitBtn.disabled = true;
-        btnText.textContent = 'Searching...';
+        btnText.textContent = 'Extracting Leads...';
         spinner.classList.remove('hidden');
         statusBox.classList.remove('hidden');
         progressContainer.classList.remove('hidden');
-        statusMessage.textContent = 'Fetching data. This may take a minute...';
-        statusMessage.style.color = '#e2e8f0';
+        statusMessage.textContent = 'Engaging scraper. This may take a minute...';
+        statusMessage.style.color = '#64748b'; // Muted Slate
 
         try {
             const response = await fetch('/api/scrape', {
@@ -73,12 +117,17 @@ document.addEventListener('DOMContentLoaded', () => {
             mainPanel.classList.add('hidden');
             resultsPanel.classList.remove('hidden');
             
+            // Scroll to results
+            resultsPanel.scrollIntoView({ behavior: 'smooth' });
+            
             // Background reset on main panel
             submitBtn.disabled = false;
-            btnText.textContent = 'Search LinkedIn';
+            btnText.textContent = 'Start Extraction';
             spinner.classList.add('hidden');
             statusBox.classList.add('hidden');
             progressContainer.classList.add('hidden');
+
+            showToast(`Successfully extracted ${currentRecords.length} leads!`, 'success');
 
         } catch (error) {
             console.error('Scrape Error:', error);
@@ -88,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Reset button
             submitBtn.disabled = false;
-            btnText.textContent = 'Search LinkedIn';
+            btnText.textContent = 'Start Extraction';
             spinner.classList.add('hidden');
         } 
     });

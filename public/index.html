@@ -12,121 +12,162 @@
 <body>
     <div id="toastContainer"></div>
     <div class="mesh-background"></div>
-    <div class="mesh-blob mesh-blob-1"></div>
-    <div class="mesh-blob mesh-blob-2"></div>
-    <div class="mesh-blob mesh-blob-3"></div>
 
-    <!-- MAIN FORM PANEL -->
-    <div class="container" id="mainPanel">
-        <div class="glass-panel main-wrapper">
-            <header class="main-header">
-                <div class="logo-area">
-                    <div class="logo-hex">
-                        <i data-lucide="zap" class="logo-icon"></i>
-                    </div>
-                    <div>
-                        <h1>Lead Generator</h1>
-                        <p>Powered by <span class="brand-name">Keshav APILINK Scraper</span></p>
-                    </div>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo-area">
+                <div class="logo-circle">
+                    <i data-lucide="zap" class="logo-icon"></i>
                 </div>
-            </header>
+                <span class="brand-text">Apify <span class="brand-accent">Linked</span></span>
+            </div>
+            <div class="nav-links">
+                <a href="#" class="nav-link active">Home</a>
+                <a href="#" class="nav-link">Features</a>
+                <a href="#" class="nav-link">Pricing</a>
+                <button class="btn-nav">Get Started</button>
+            </div>
+        </div>
+    </nav>
 
-            <form id="scrapeForm" class="form-grid">
-                <div class="input-group">
-                    <label for="keyword"><i data-lucide="search"></i> Job Title Keyword</label>
-                    <input type="text" id="keyword" name="keyword" placeholder="e.g. Software Developer" required>
+    <section class="hero-slider">
+        <div class="slider-container" id="heroSlider">
+            <div class="slide active" style="background-image: url('images/hero1.png')">
+                <div class="slide-content">
+                    <h2>Advanced Lead Generation</h2>
+                    <p>Harness the power of AI to scrape and enrich high-quality business leads effortlessly.</p>
                 </div>
-                
-                <div class="input-group">
-                    <label for="location"><i data-lucide="map-pin"></i> Location</label>
-                    <input type="text" id="location" name="location" placeholder="e.g. United States" required>
+            </div>
+            <div class="slide" style="background-image: url('images/hero2.png')">
+                <div class="slide-content">
+                    <h2>Data-Driven Insights</h2>
+                    <p>Transform raw LinkedIn data into actionable intelligence for your sales team.</p>
                 </div>
+            </div>
+            <div class="slide" style="background-image: url('images/hero3.png')">
+                <div class="slide-content">
+                    <h2>Global Scalability</h2>
+                    <p>Reach markets worldwide with our premium scraper and enrichment engine.</p>
+                </div>
+            </div>
+            <div class="slider-controls">
+                <button class="slider-dot active" data-index="0"></button>
+                <button class="slider-dot" data-index="1"></button>
+                <button class="slider-dot" data-index="2"></button>
+            </div>
+        </div>
+    </section>
 
-                <div class="form-row">
+    <!-- MAIN APP WRAPPER -->
+    <main class="app-main">
+        <!-- SEARCH PANEL -->
+        <div class="container" id="mainPanel">
+            <div class="premium-card main-wrapper">
+                <header class="section-header">
+                    <div class="badge">LinkedIn Scraper</div>
+                    <h2>Generate New Leads</h2>
+                    <p>Specify your target criteria to begin harvesting premium leads.</p>
+                </header>
+
+                <form id="scrapeForm" class="form-grid">
                     <div class="input-group">
-                        <label for="datePosted"><i data-lucide="calendar"></i> Date Posted</label>
-                        <select id="datePosted" name="datePosted">
-                            <option value="">Any Time</option>
-                            <option value="r86400">Past 24 hours</option>
-                            <option value="r604800">Past Week</option>
-                            <option value="r2592000">Past Month</option>
-                        </select>
+                        <label for="keyword"><i data-lucide="search"></i> Job Title Keyword</label>
+                        <input type="text" id="keyword" name="keyword" placeholder="e.g. Software Developer" required>
                     </div>
-
+                    
                     <div class="input-group">
-                        <label for="jobsNumber"><i data-lucide="list"></i> Search Limit</label>
-                        <input type="number" id="jobsNumber" name="jobsNumber" value="20" min="1" max="1000">
+                        <label for="location"><i data-lucide="map-pin"></i> Location</label>
+                        <input type="text" id="location" name="location" placeholder="e.g. United States" required>
                     </div>
-                </div>
 
-                <button type="submit" id="submitBtn" class="btn-primary">
-                    <span class="btn-text">Search LinkedIn</span>
-                    <i data-lucide="arrow-right" class="btn-arrow"></i>
-                    <span class="spinner hidden"></span>
-                </button>
-            </form>
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label for="datePosted"><i data-lucide="calendar"></i> Date Posted</label>
+                            <select id="datePosted" name="datePosted">
+                                <option value="">Any Time</option>
+                                <option value="r86400">Past 24 hours</option>
+                                <option value="r604800">Past Week</option>
+                                <option value="r2592000">Past Month</option>
+                            </select>
+                        </div>
 
-            <div id="statusBox" class="status-box hidden">
-                <div class="status-content">
-                    <p id="statusMessage">Starting the search...</p>
-                    <div class="progress-bar-container hidden" id="progressContainer">
-                        <div class="progress-bar"></div>
+                        <div class="input-group">
+                            <label for="jobsNumber"><i data-lucide="list"></i> Search Limit</label>
+                            <input type="number" id="jobsNumber" name="jobsNumber" value="20" min="1" max="1000">
+                        </div>
+                    </div>
+
+                    <button type="submit" id="submitBtn" class="btn-primary">
+                        <span class="btn-text">Start Extraction</span>
+                        <i data-lucide="arrow-right" class="btn-arrow"></i>
+                        <span class="spinner hidden"></span>
+                    </button>
+                </form>
+
+                <div id="statusBox" class="status-box hidden">
+                    <div class="status-content">
+                        <p id="statusMessage">Starting the search...</p>
+                        <div class="progress-bar-container hidden" id="progressContainer">
+                            <div class="progress-bar"></div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- RESULTS PANEL -->
-    <div class="results-container hidden" id="resultsPanel">
-        <div class="glass-panel results-wrapper">
-            <header class="results-header">
-                <div class="results-title">
-                    <h2>Scraped Leads Review</h2>
-                    <p id="resultsStats">Found X matching jobs</p>
-                    <div id="selectionInfo" class="selection-status hidden">
-                        <span id="selectedCount">0</span> leads selected
+        <!-- RESULTS PANEL -->
+        <div class="results-container hidden" id="resultsPanel">
+            <div class="premium-card results-wrapper">
+                <header class="results-header">
+                    <div class="results-title">
+                        <div class="badge success">Live Data</div>
+                        <h2>Scraped Leads Review</h2>
+                        <p id="resultsStats">Found X matching jobs</p>
+                        <div id="selectionInfo" class="selection-status hidden">
+                            <span id="selectedCount">0</span> leads selected
+                        </div>
+                    </div>
+                    <div class="results-actions">
+                        <button id="backBtn" class="btn-secondary"><i data-lucide="chevron-left"></i> Back</button>
+                        <button id="deleteSelectedBtn" class="btn-danger hidden"><i data-lucide="trash-2"></i> Delete Selected</button>
+                        <button id="enrichBtn" class="btn-premium"><i data-lucide="sparkles"></i> Enrich Selective</button>
+                        <button id="downloadCsvBtn" class="btn-outline success"><i data-lucide="file-text"></i> Download CSV</button>
+                        <button id="approveBtn" class="btn-success"><i data-lucide="download"></i> Approve & Download (Excel)</button>
+                    </div>
+                </header>
+
+                <div id="downloadFallback" class="fallback-box hidden">
+                    <div class="fallback-inner">
+                        <i data-lucide="info"></i>
+                        <p>Download should start automatically. If not, <a id="manualDownloadLink" href="#" target="_blank">click here to download manually</a>.</p>
                     </div>
                 </div>
-                <div class="results-actions">
-                    <button id="backBtn" class="btn-secondary"><i data-lucide="chevron-left"></i> Back</button>
-                    <button id="deleteSelectedBtn" class="btn-danger hidden"><i data-lucide="trash-2"></i> Delete Selected</button>
-                    <button id="enrichBtn" class="btn-secondary" style="border-color: hsla(var(--brand-primary), 0.5); color: hsla(var(--brand-primary), 1);"><i data-lucide="sparkles"></i> Enrich Selective</button>
-                    <button id="downloadCsvBtn" class="btn-secondary" style="border-color: #22c55e; color: #22c55e;"><i data-lucide="file-text"></i> Download CSV</button>
-                    <button id="approveBtn" class="btn-success"><i data-lucide="download"></i> Approve & Download (Excel)</button>
-                </div>
-            </header>
 
-            <div id="downloadFallback" class="fallback-box hidden">
-                <div class="fallback-inner">
-                    <i data-lucide="info"></i>
-                    <p>Download should start automatically. If not, <a id="manualDownloadLink" href="#" target="_blank">click here to download manually</a>.</p>
+                <div class="table-frame">
+                    <table id="leadsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"><input type="checkbox" id="selectAll"></th>
+                                <th>Company</th>
+                                <th>CEO Name</th>
+                                <th>CEO Email</th>
+                                <th>CEO Contact</th>
+                                <th>Job Title</th>
+                                <th>Location</th>
+                                <th class="text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <!-- Rows injected via JS -->
+                        </tbody>
+                    </table>
                 </div>
-            </div>
-
-            <div class="table-frame">
-                <table id="leadsTable">
-                    <thead>
-                        <tr>
-                            <th style="width: 40px;"><input type="checkbox" id="selectAll"></th>
-                            <th>Company</th>
-                            <th>CEO Name</th>
-                            <th>CEO Email</th>
-                            <th>CEO Contact</th>
-                            <th>Job Title</th>
-                            <th>Location</th>
-                            <th class="text-right">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                        <!-- Rows injected via JS -->
-                    </tbody>
-                </table>
             </div>
         </div>
-    </div>
+    </main>
 
     <script src="app.js"></script>
+
     <script>
         // Initialize Lucide icons
         lucide.createIcons();
