@@ -4,3 +4,4 @@ leads/
 *.log
 .vscode/
 .DS_Store
+temp_exports/
