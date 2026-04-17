@@ -413,6 +413,33 @@ input:focus, select:focus {
     font-weight: 600;
     margin-top: 0.5rem;
 }
+.export-settings {
+    margin-top: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.export-settings label {
+    margin: 0;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.filename-input {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    width: 200px;
+    background: var(--bg-secondary);
+    transition: var(--transition-base);
+}
+
+.filename-input:focus {
+    width: 240px;
+    background: white;
+}
 
 .results-actions {
     display: flex;

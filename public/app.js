@@ -333,7 +333,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const mimeType = format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
             const blob = new Blob([data], { type: mimeType });
             const downloadUrl = window.URL.createObjectURL(blob);
-            const filename = `leads_export.${format}`;
+            // Get the custom filename or use default
+            const customName = document.getElementById('customFilename').value.trim();
+            const baseName = customName || 'leads_export';
+            const filename = `${baseName}.${format}`;
 
             // 1. Show manual download link as a fallback
             manualDownloadLink.href = downloadUrl;
