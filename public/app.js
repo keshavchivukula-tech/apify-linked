@@ -1,4 +1,11 @@
-document.addEventListener('DOMContentLoaded', () => {
+    // --- Supabase Configuration ---
+    // PLEASE UPDATE THESE KEYS with your Supabase Project Details
+    const SUPABASE_URL = 'YOUR_SUPABASE_PROJECT_URL';
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+    
+    // Initialize Supabase Client
+    const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
     // Main Panel Elements
     const form = document.getElementById('scrapeForm');
     const submitBtn = document.getElementById('submitBtn');
@@ -92,14 +99,12 @@ document.addEventListener('DOMContentLoaded', () => {
         statusMessage.style.color = '#64748b'; // Muted Slate
 
         try {
-            const response = await fetch('/api/scrape', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ keyword, location, jobsNumber, datePosted })
+            // Call Supabase Edge Function
+            const { data, error } = await supabase.functions.invoke('scrape-leads', {
+                body: { keyword, location, jobsNumber, datePosted }
             });
 
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error);
+            if (error) throw error;
 
             // Initialize all records as selected by default
             currentRecords = data.records.map((r, index) => ({ 
@@ -107,6 +112,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 id: index, 
                 selected: true 
             }));
+
+            // OPTIONAL: Save to Supabase Database
+            await supabase.from('leads').insert(
+                currentRecords.map(r => ({
+                    company: r.company,
+                    title: r.title,
+                    location: r.location,
+                    job_url: r.jobUrl,
+                    company_url: r.companyUrl,
+                    description: r.description,
+                    keyword: keyword,
+                    search_location: location
+                }))
+            );
 
             renderTable();
 
@@ -171,14 +190,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (window.lucide) window.lucide.createIcons();
 
                 try {
-                    const response = await fetch('/api/enrich', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ records: [lead] }) // Send one at a time for stability
+                    const { data, error } = await supabase.functions.invoke('enrich-leads', {
+                        body: { records: [lead] }
                     });
 
-                    const data = await response.json();
-                    if (!response.ok) throw new Error(data.error);
+                    if (error) throw error;
 
                     // Update the match back into currentRecords
                     if (data.records && data.records.length > 0) {
@@ -186,6 +202,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         const idx = currentRecords.findIndex(r => r.company === updated.company && r.title === updated.title);
                         if (idx !== -1) {
                             currentRecords[idx] = { ...currentRecords[idx], ...updated };
+                            
+                            // Update the database as well
+                            await supabase.from('leads')
+                                .update({
+                                    ceo_name: updated.ceoName,
+                                    ceo_email: updated.ceoEmail,
+                                    ceo_phone: updated.ceoPhone,
+                                    status: 'enriched'
+                                })
+                                .match({ company: updated.company, title: updated.title });
+                                
                             successCount++;
                         }
                     }
