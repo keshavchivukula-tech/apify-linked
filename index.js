@@ -1,4 +1,5 @@
 import express from 'express';
+import os from 'os';
 import { ApifyClient } from 'apify-client';
 import dotenv from 'dotenv';
 import ExcelJS from 'exceljs';
@@ -41,8 +42,8 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-const LEADS_DIR = path.join(__dirname, 'leads');
-if (!fs.existsSync(LEADS_DIR)) fs.mkdirSync(LEADS_DIR);
+const LEADS_DIR = path.join(os.tmpdir(), 'apify_leads');
+if (!fs.existsSync(LEADS_DIR)) fs.mkdirSync(LEADS_DIR, { recursive: true });
 
 // Scrape endpoint
 app.post('/api/scrape', async (req, res) => {
@@ -147,8 +148,8 @@ app.post('/api/export', async (req, res) => {
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads');
 
-        const TEMP_DIR = path.join(__dirname, 'temp_exports');
-        if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
+        const TEMP_DIR = path.join(os.tmpdir(), 'apify_exports');
+        if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
         const tempFilePath = path.join(TEMP_DIR, filename);
 
         // 2. Write to file using SheetJS
@@ -289,4 +290,10 @@ app.get('/api/download/:filename', (req, res) => {
     });
 });
 
-app.listen(PORT, () => console.log(`🎉 [v2] Server is running on http://localhost:${PORT}`));
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.listen(PORT, () => {
+    console.log(`🎉 [v2] Server is running on http://localhost:${PORT}`);
+});
