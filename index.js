@@ -16,7 +16,6 @@ process.on('uncaughtException', (err) => {
     if (err.code === 'ECONNRESET' || err.message === 'aborted') {
         console.warn('[WARN] Network abort detected, keeping server alive...');
     } else {
-        // For other errors, we might want to exit, but let's stay alive for now in this dev environment
         console.error(err.stack);
     }
 });
@@ -31,11 +30,10 @@ const __dirname = path.dirname(__filename);
 const APIFY_API_TOKEN = process.env.APIFY_API_TOKEN;
 
 if (!APIFY_API_TOKEN) {
-    console.error('CRITICAL ERROR: APIFY_API_TOKEN is missing in the .env file.');
-    process.exit(1);
+    console.warn('[WARNING] APIFY_API_TOKEN is missing. Application will start but scraper functionality will be disabled.');
 }
 
-const client = new ApifyClient({ token: APIFY_API_TOKEN });
+const client = new ApifyClient({ token: APIFY_API_TOKEN || 'MISSING' });
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -43,7 +41,20 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const LEADS_DIR = path.join(os.tmpdir(), 'apify_leads');
-if (!fs.existsSync(LEADS_DIR)) fs.mkdirSync(LEADS_DIR, { recursive: true });
+try {
+    if (!fs.existsSync(LEADS_DIR)) fs.mkdirSync(LEADS_DIR, { recursive: true });
+} catch (e) {
+    console.error('[CRITICAL] Failed to create leads directory:', e.message);
+}
+
+// Health check endpoint for Vercel
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'ok', 
+        token_configured: !!APIFY_API_TOKEN,
+        env: process.env.NODE_ENV || 'production'
+    });
+});
 
 // Scrape endpoint
 app.post('/api/scrape', async (req, res) => {
@@ -75,7 +86,6 @@ app.post('/api/scrape', async (req, res) => {
 
         if (items.length === 0) return res.status(404).json({ error: 'No jobs found for the specified criteria.' });
 
-        // Split keyword into individual words (e.g. "Software Developer" -> ["software", "developer"])
         const keywordParts = keyword.toLowerCase().split(' ').filter(p => p.trim() !== '');
         
         let records = items.map(item => ({
@@ -88,15 +98,11 @@ app.post('/api/scrape', async (req, res) => {
         }));
 
         const originalCount = records.length;
-        // Smart Filter: Ensure that EVERY word in the search keyword exists in the job title. 
-        // This allows "Software Developer" to match "Junior Software Web Developer"
         records = records.filter(r => {
             const titleLower = r.title.toLowerCase();
             return keywordParts.every(part => titleLower.includes(part));
         });
         
-        // If it's STILL 0, fallback to a softer filter: ensure AT LEAST ONE word from the keyword is in the title.
-        // This prevents the "0 results" issue if LinkedIn returns slightly different titles (e.g. Engineer vs Developer)
         if (records.length === 0) {
              records = items.map(item => ({
                 company: item.company_name || 'Unknown',
@@ -107,9 +113,8 @@ app.post('/api/scrape', async (req, res) => {
                 description: (item.job_description || '').substring(0, 150).replace(/\n/g, ' ') + '...'
             })).filter(r => {
                 const titleLower = r.title.toLowerCase();
-                // Ignore generic words like "and", "or", "in" if doing loose match
                 const significantParts = keywordParts.filter(p => p.length > 2);
-                if (significantParts.length === 0) return true; // if they just searched "IT", let it pass
+                if (significantParts.length === 0) return true;
                 return significantParts.some(part => titleLower.includes(part));
             });
             console.log(`[API] Strict filter yielded 0 results. Falling back to loose match. Found ${records.length} jobs.`);
@@ -121,8 +126,6 @@ app.post('/api/scrape', async (req, res) => {
 
     } catch (error) {
         console.error(`[API] Scrape Error [${error.code || 'UNKNOWN'}]:`, error.message);
-        
-        // Don't crash on network timeouts or resets
         const statusCode = error.code === 'ECONNRESET' ? 503 : 500;
         const msg = error.code === 'ECONNRESET' 
             ? 'Connection to Apify was reset. Please try again in 30 seconds.'
@@ -142,7 +145,6 @@ app.post('/api/export', async (req, res) => {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const extension = isCsv ? 'csv' : 'xlsx';
         const filename = `leads_${timestamp}.${extension}`;
-        const filePath = path.join(LEADS_DIR, filename);
 
         const worksheet = XLSX.utils.json_to_sheet(records);
         const workbook = XLSX.utils.book_new();
@@ -152,7 +154,6 @@ app.post('/api/export', async (req, res) => {
         if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
         const tempFilePath = path.join(TEMP_DIR, filename);
 
-        // 2. Write to file using SheetJS
         if (isCsv) {
             XLSX.writeFile(workbook, tempFilePath, { bookType: 'csv' });
         } else {
@@ -161,15 +162,13 @@ app.post('/api/export', async (req, res) => {
 
         console.log(`[API] Temp file created for download: ${tempFilePath}`);
 
-        // 3. Serve the file using res.download
         res.download(tempFilePath, filename, (err) => {
             if (err) {
                 console.error('[API] Download error:', err);
             }
-            // Cleanup temp file after some time or immediately
             setTimeout(() => {
                 if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-            }, 60000); // Wait 1 minute
+            }, 60000);
         });
 
     } catch(err) {
@@ -178,7 +177,7 @@ app.post('/api/export', async (req, res) => {
     }
 });
 
-// Lead Enrichment Endpoint (Stage 2 - REAL DATA)
+// Lead Enrichment Endpoint
 app.post('/api/enrich', async (req, res) => {
     try {
         const { records } = req.body;
@@ -189,53 +188,28 @@ app.post('/api/enrich', async (req, res) => {
         const enrichLead = async (r) => {
             try {
                 console.log(`[API] Enriching: ${r.company}`);
-                
-                // Call the specialized actor for CEO discovery
-                let run;
-                try {
-                    run = await client.actor('2atkKH5LuF2AAPp3N').call({
-                        mode: 'search_profiles',
-                        searchQuery: `CEO at ${r.company}`,
-                        maxProfilesPerSearch: 1,
-                        discoverEmails: true,
-                        includeContactInformation: true
-                    });
-                } catch (actorErr) {
-                    console.error(`[API] Apify Actor Call Error for ${r.company}:`, actorErr.message);
-                    return { ...r, ceoName: 'NA (Error)', ceoEmail: 'NA (Error)', ceoPhone: 'NA (Error)' };
-                }
+                let run = await client.actor('2atkKH5LuF2AAPp3N').call({
+                    mode: 'search_profiles',
+                    searchQuery: `CEO at ${r.company}`,
+                    maxProfilesPerSearch: 1,
+                    discoverEmails: true,
+                    includeContactInformation: true
+                });
 
                 const { items } = await client.dataset(run.defaultDatasetId).listItems();
-                console.log(`[API] Actor found ${items.length} items for ${r.company}`);
-                
                 if (items && items.length > 0) {
                     const ceo = items[0];
-                    
-                    // Log the first item for debugging schema
-                    console.log(`[DEBUG] Item keys for ${r.company}:`, Object.keys(ceo).join(', '));
-                    if (ceo.email) console.log(`[DEBUG] Email found: ${ceo.email}`);
-
-                    // Robust Field Mapping
                     const ceoName = ceo.fullName || ceo.full_name || ceo.name || 'NA';
-                    
                     let ceoEmail = 'NA';
                     if (ceo.email) {
                         ceoEmail = Array.isArray(ceo.email) ? ceo.email[0] : ceo.email;
                     } else if (ceo.emails && Array.isArray(ceo.emails)) {
                         ceoEmail = ceo.emails[0];
-                    } else if (ceo.officialEmail) {
-                        ceoEmail = ceo.officialEmail;
                     }
-
                     let ceoPhone = 'NA';
                     if (ceo.phone) {
                         ceoPhone = Array.isArray(ceo.phone) ? ceo.phone[0] : ceo.phone;
-                    } else if (ceo.phone_number) {
-                        ceoPhone = ceo.phone_number;
-                    } else if (ceo.phoneNumbers && Array.isArray(ceo.phoneNumbers)) {
-                        ceoPhone = ceo.phoneNumbers[0];
                     }
-
                     return {
                         ...r,
                         ceoName: ceoName !== 'NA' ? ceoName : (r.ceoName || 'NA'),
@@ -243,28 +217,19 @@ app.post('/api/enrich', async (req, res) => {
                         ceoPhone: ceoPhone !== 'NA' ? ceoPhone : (r.ceoPhone || 'NA')
                     };
                 }
-                
-                console.log(`[API] No enrichment data found for ${r.company}`);
                 return { ...r };
-
             } catch (err) {
                 console.error(`[API] Enrichment failed for ${r.company}:`, err.message);
-                return { ...r }; // Return original record on failure
+                return { ...r };
             }
         };
 
-        // Process sequentially or in very small batches for stability
         const enrichedRecords = [];
-        try {
-            for (const record of records) {
-                const result = await enrichLead(record);
-                enrichedRecords.push(result);
-            }
-            res.json({ records: enrichedRecords });
-        } catch (loopErr) {
-            console.error('[API] Enrichment Loop Error:', loopErr.message);
-            res.status(500).json({ error: 'Failed to complete enrichment batch due to network error.' });
+        for (const record of records) {
+            const result = await enrichLead(record);
+            enrichedRecords.push(result);
         }
+        res.json({ records: enrichedRecords });
 
     } catch(err) {
         console.error('[API] Global Enrichment Error:', err.message);
@@ -274,19 +239,11 @@ app.post('/api/enrich', async (req, res) => {
 
 app.get('/api/download/:filename', (req, res) => {
     const filename = req.params.filename;
-    console.log(`[API] Download request for: ${filename}`);
     if (filename.includes('..') || filename.includes('/')) return res.status(400).send('Invalid filename');
     const filePath = path.join(LEADS_DIR, filename);
-    if (!fs.existsSync(filePath)) {
-        console.log(`[API] Download failed: File not found at ${filePath}`);
-        return res.status(404).send('File not found');
-    }
+    if (!fs.existsSync(filePath)) return res.status(404).send('File not found');
     res.download(filePath, (err) => {
-        if (err) {
-            console.log(`[API] Download error: ${err.message}`);
-        } else {
-            console.log(`[API] Successfully sent ${filename}`);
-        }
+        if (err) console.log(`[API] Download error: ${err.message}`);
     });
 });
 
