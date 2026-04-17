@@ -24,15 +24,15 @@
                 <span class="brand-text">Apify <span class="brand-accent">Linked</span></span>
             </div>
             <div class="nav-links">
-                <a href="#" class="nav-link active">Home</a>
-                <a href="#" class="nav-link">Features</a>
-                <a href="#" class="nav-link">Pricing</a>
-                <button class="btn-nav">Get Started</button>
+                <a href="#home" class="nav-link active">Home</a>
+                <a href="#features" class="nav-link">Features</a>
+                <a href="#pricing" class="nav-link">Pricing</a>
+                <a href="#mainPanel" class="btn-nav">Get Started</a>
             </div>
         </div>
     </nav>
 
-    <section class="hero-slider">
+    <section id="home" class="hero-slider">
         <div class="slider-container" id="heroSlider">
             <div class="slide active" style="background-image: url('images/hero1.png')">
                 <div class="slide-content">
@@ -166,7 +166,139 @@
                 </div>
             </div>
         </div>
+        <!-- FEATURES SECTION -->
+        <section id="features" class="container section-padding">
+            <header class="section-header centered">
+                <div class="badge">Capability</div>
+                <h2>Supercharge Your Outbound</h2>
+                <p>Everything you need to turn LinkedIn data into high-converting sales pipelines.</p>
+            </header>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon-box"><i data-lucide="zap"></i></div>
+                    <h3>Rapid Extraction</h3>
+                    <p>Scrape hundreds of targeted job postings and company data in seconds with our high-concurrency engine.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon-box"><i data-lucide="sparkles"></i></div>
+                    <h3>AI Enrichment</h3>
+                    <p>Our intelligent matching engine finds the CEO and decision-makers for every company found.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon-box"><i data-lucide="database"></i></div>
+                    <h3>Data Verification</h3>
+                    <p>Verified emails and contact details ensure your outreach never hits a dead end.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon-box"><i data-lucide="file-spreadsheet"></i></div>
+                    <h3>Seamless Export</h3>
+                    <p>Export your leads directly to professional Excel or CSV formats, ready for your CRM or outreach tool.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- PRICING SECTION -->
+        <section id="pricing" class="container section-padding">
+            <header class="section-header centered">
+                <div class="badge premium">Plans</div>
+                <h2>Flexible Pricing for Every Scale</h2>
+                <p>Choose the plan that fits your lead generation needs.</p>
+            </header>
+
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <span class="plan-name">Starter</span>
+                        <div class="price">Free<span>/mo</span></div>
+                    </div>
+                    <ul class="plan-features">
+                        <li><i data-lucide="check"></i> 50 Leads Per Month</li>
+                        <li><i data-lucide="check"></i> Basic Extraction</li>
+                        <li><i data-lucide="check"></i> CSV Export</li>
+                        <li class="disabled"><i data-lucide="x"></i> CEO Enrichment</li>
+                    </ul>
+                    <button class="btn-outline w-full">Current Plan</button>
+                </div>
+
+                <div class="pricing-card featured">
+                    <div class="pricing-header">
+                        <span class="plan-name">Professional</span>
+                        <div class="price">$49<span>/mo</span></div>
+                    </div>
+                    <ul class="plan-features">
+                        <li><i data-lucide="check"></i> 1,000 Leads Per Month</li>
+                        <li><i data-lucide="check"></i> Unlimited CEO Enrichment</li>
+                        <li><i data-lucide="check"></i> Excel & CSV Export</li>
+                        <li><i data-lucide="check"></i> Priority Support</li>
+                    </ul>
+                    <button class="btn-primary w-full">Upgrade Now</button>
+                </div>
+
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <span class="plan-name">Enterprise</span>
+                        <div class="price">Custom</div>
+                    </div>
+                    <ul class="plan-features">
+                        <li><i data-lucide="check"></i> Unlimited Leads</li>
+                        <li><i data-lucide="check"></i> Custom API Access</li>
+                        <li><i data-lucide="check"></i> Dedicated Account Manager</li>
+                        <li><i data-lucide="check"></i> White-labeling</li>
+                    </ul>
+                    <button class="btn-outline w-full">Contact Sales</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- FINAL CTA SECTION -->
+        <section class="container section-padding">
+            <div class="cta-banner">
+                <div class="cta-content">
+                    <h2>Ready to grow your business?</h2>
+                    <p>Join over 5,000+ sales teams using Apify Linked to scale their outreach.</p>
+                </div>
+                <div class="cta-actions">
+                    <a href="#mainPanel" class="btn-primary white">Get Started Now</a>
+                </div>
+            </div>
+        </section>
     </main>
+
+    <footer class="footer">
+        <div class="container footer-container">
+            <div class="footer-brand">
+                <div class="logo-area">
+                    <div class="logo-circle"><i data-lucide="zap" class="logo-icon"></i></div>
+                    <span class="brand-text">Apify <span class="brand-accent">Linked</span></span>
+                </div>
+                <p>The world's most powerful lead generation platform.</p>
+            </div>
+            <div class="footer-links">
+                <div class="link-group">
+                    <h4>Product</h4>
+                    <a href="#features">Features</a>
+                    <a href="#pricing">Pricing</a>
+                    <a href="#">API Docs</a>
+                </div>
+                <div class="link-group">
+                    <h4>Company</h4>
+                    <a href="#">About Us</a>
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
+                </div>
+                <div class="link-group">
+                    <h4>Social</h4>
+                    <a href="#">Twitter</a>
+                    <a href="#">LinkedIn</a>
+                    <a href="#">GitHub</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Apify Linked. All rights reserved.</p>
+        </div>
+    </footer>
 
     <script src="app.js"></script>
 

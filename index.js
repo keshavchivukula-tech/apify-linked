@@ -5,6 +5,7 @@ import ExcelJS from 'exceljs';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import * as XLSX from 'xlsx';
 
 dotenv.config();
 
@@ -142,58 +143,33 @@ app.post('/api/export', async (req, res) => {
         const filename = `leads_${timestamp}.${extension}`;
         const filePath = path.join(LEADS_DIR, filename);
 
-        // Create a new workbook and worksheet
-        const workbook = new ExcelJS.Workbook();
-        const sheet = workbook.addWorksheet('Leads');
+        const worksheet = XLSX.utils.json_to_sheet(records);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads');
 
-        // Define columns
-        sheet.columns = [
-            { header: 'Company Name', key: 'company', width: 25 },
-            { header: 'CEO Name', key: 'ceoName', width: 25 },
-            { header: 'CEO Email', key: 'ceoEmail', width: 30 },
-            { header: 'CEO Contact', key: 'ceoPhone', width: 20 },
-            { header: 'Job Title', key: 'title', width: 35 },
-            { header: 'Location', key: 'location', width: 20 },
-            { header: 'Job URL', key: 'jobUrl', width: 45 },
-            { header: 'Company LinkedIn', key: 'companyUrl', width: 45 },
-            { header: 'Job Description', key: 'description', width: 60 }
-        ];
+        const TEMP_DIR = path.join(__dirname, 'temp_exports');
+        if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
+        const tempFilePath = path.join(TEMP_DIR, filename);
 
-        // Format header row
-        sheet.getRow(1).font = { bold: true };
-        sheet.getRow(1).fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFE0E0E0' }
-        };
-
-        // Add records
-        records.forEach(r => {
-            sheet.addRow({
-                company: r.company,
-                ceoName: r.ceoName || 'NA',
-                ceoEmail: r.ceoEmail || 'NA',
-                ceoPhone: r.ceoPhone || 'NA',
-                title: r.title,
-                location: r.location,
-                jobUrl: r.jobUrl,
-                companyUrl: r.companyUrl,
-                description: r.description
-            });
-        });
-
-        // 1. Write to file (as a persistent record)
+        // 2. Write to file using SheetJS
         if (isCsv) {
-            await workbook.csv.writeFile(filePath);
+            XLSX.writeFile(workbook, tempFilePath, { bookType: 'csv' });
         } else {
-            await workbook.xlsx.writeFile(filePath);
+            XLSX.writeFile(workbook, tempFilePath, { bookType: 'xlsx' });
         }
-        console.log(`[API] Saved to disk: ${filename}`);
 
-        // 2. Respond with the filename so the client can trigger a regular GET download
-        console.log(`DEBUG: Sending JSON response for export: ${filename}`);
-        res.json({ message: `${extension.toUpperCase()} generated successfully`, filename });
-        console.log(`[API] Export reference sent: ${filename}`);
+        console.log(`[API] Temp file created for download: ${tempFilePath}`);
+
+        // 3. Serve the file using res.download
+        res.download(tempFilePath, filename, (err) => {
+            if (err) {
+                console.error('[API] Download error:', err);
+            }
+            // Cleanup temp file after some time or immediately
+            setTimeout(() => {
+                if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+            }, 60000); // Wait 1 minute
+        });
 
     } catch(err) {
         console.error('[API] Export error:', err);

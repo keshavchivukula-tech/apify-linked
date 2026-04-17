@@ -1,3 +1,4 @@
+document.addEventListener('DOMContentLoaded', () => {
     // --- Supabase Configuration ---
     // PLEASE UPDATE THESE KEYS with your Supabase Project Details
     const SUPABASE_URL = 'https://wjjdfbpofwylzoovtxcq.supabase.co';
@@ -37,9 +38,65 @@
     let currentRecords = []; // Holds the approved records for the CSV
     let enrichingIds = new Set(); // IDs of records currently being enriched
 
+    // --- Navbar & Scroll Spy ---
+    function initNavigation() {
+        const navLinks = document.querySelectorAll('.nav-link');
+        const sections = document.querySelectorAll('section[id]');
+        const navbar = document.querySelector('.navbar');
+
+        // Smooth Scroll for Nav Links
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                const href = link.getAttribute('href');
+                if (href.startsWith('#')) {
+                    e.preventDefault();
+                    const target = document.querySelector(href);
+                    if (target) {
+                        window.scrollTo({
+                            top: target.offsetTop - 80, // Offset for fixed navbar
+                            behavior: 'smooth'
+                        });
+                    }
+                }
+            });
+        });
+
+        // Scroll Spy Logic
+        window.addEventListener('scroll', () => {
+            let current = '';
+            const scrollPos = window.scrollY + 100;
+
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (scrollPos >= sectionTop && scrollPos < sectionTop + sectionHeight) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === `#${current}`) {
+                    link.classList.add('active');
+                }
+            });
+
+            // Sticky Navbar Shadow
+            if (window.scrollY > 20) {
+                navbar.style.boxShadow = 'var(--shadow-lg)';
+            } else {
+                navbar.style.boxShadow = 'none';
+            }
+        });
+    }
+
+    initNavigation();
+
     // --- Slider Logic ---
     function initSlider() {
         const slider = document.getElementById('heroSlider');
+        if (!slider) return;
+        
         const slides = slider.querySelectorAll('.slide');
         const dots = slider.querySelectorAll('.slider-dot');
         let currentSlide = 0;
@@ -83,6 +140,7 @@
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        console.log('Form submitted!');
 
         const keyword = document.getElementById('keyword').value;
         const location = document.getElementById('location').value;
@@ -99,12 +157,18 @@
         statusMessage.style.color = '#64748b'; // Muted Slate
 
         try {
-            // Call Supabase Edge Function
-            const { data, error } = await supabase.functions.invoke('scrape-leads', {
-                body: { keyword, location, jobsNumber, datePosted }
+            console.log('Calling scraper...');
+            // Call Local Express API instead of Supabase Edge Function for better reliability
+            const response = await fetch('/api/scrape', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keyword, location, jobsNumber, datePosted })
             });
 
-            if (error) throw error;
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Scrape failed');
+
+            console.log('Scrape successful!', data);
 
             // Initialize all records as selected by default
             currentRecords = data.records.map((r, index) => ({ 
@@ -112,20 +176,6 @@
                 id: index, 
                 selected: true 
             }));
-
-            // OPTIONAL: Save to Supabase Database
-            await supabase.from('leads').insert(
-                currentRecords.map(r => ({
-                    company: r.company,
-                    title: r.title,
-                    location: r.location,
-                    job_url: r.jobUrl,
-                    company_url: r.companyUrl,
-                    description: r.description,
-                    keyword: keyword,
-                    search_location: location
-                }))
-            );
 
             renderTable();
 
@@ -190,11 +240,15 @@
                 if (window.lucide) window.lucide.createIcons();
 
                 try {
-                    const { data, error } = await supabase.functions.invoke('enrich-leads', {
-                        body: { records: [lead] }
+                    // Call Local Express API
+                    const response = await fetch('/api/enrich', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ records: [lead] })
                     });
 
-                    if (error) throw error;
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || 'Enrichment failed');
 
                     // Update the match back into currentRecords
                     if (data.records && data.records.length > 0) {
@@ -202,17 +256,6 @@
                         const idx = currentRecords.findIndex(r => r.company === updated.company && r.title === updated.title);
                         if (idx !== -1) {
                             currentRecords[idx] = { ...currentRecords[idx], ...updated };
-                            
-                            // Update the database as well
-                            await supabase.from('leads')
-                                .update({
-                                    ceo_name: updated.ceoName,
-                                    ceo_email: updated.ceoEmail,
-                                    ceo_phone: updated.ceoPhone,
-                                    status: 'enriched'
-                                })
-                                .match({ company: updated.company, title: updated.title });
-                                
                             successCount++;
                         }
                     }
@@ -274,31 +317,44 @@
                 body: JSON.stringify({ records: selectedLeads, format })
             });
             
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || `Failed to generate ${extension} file`);
-
-            const filename = data.filename;
-            const downloadUrl = `/api/download/${filename}`;
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Export failed' }));
+                throw new Error(errorData.error || `Failed to generate ${extension} file`);
+            }
+            
+            // Get the data and create a typed blob (Distinguish between text and binary)
+            let data;
+            if (format === 'csv') {
+                data = await response.text();
+            } else {
+                data = await response.arrayBuffer();
+            }
+            
+            const mimeType = format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            const blob = new Blob([data], { type: mimeType });
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const filename = `leads_export.${format}`;
 
             // 1. Show manual download link as a fallback
             manualDownloadLink.href = downloadUrl;
             manualDownloadLink.download = filename;
             downloadFallback.classList.remove('hidden');
 
-            // 2. Automatic trigger using a temporary link element
+            // 2. Automatic trigger (Following user's "important" suggestion)
             const a = document.createElement('a');
             a.href = downloadUrl;
             a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-
+            
             // Success feedback
             targetBtn.innerHTML = `✅ ${extension} Ready!`;
             setTimeout(() => {
                 targetBtn.innerHTML = originalText;
                 targetBtn.disabled = false;
                 if (window.lucide) window.lucide.createIcons();
+                window.URL.revokeObjectURL(downloadUrl);
             }, 5000);
             
         } catch(err) {
