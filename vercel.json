@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "public": true,
+  "cleanUrls": true,
+  "framework": null,
+  "outputDirectory": "public",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
